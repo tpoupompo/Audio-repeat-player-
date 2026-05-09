@@ -723,7 +723,7 @@
 
 </div>
 
-<audio id="audio-player"></audio>
+<audio id="audio-player" playsinline webkit-playsinline></audio>
 
 <script>
   const dropZone = document.getElementById('drop-zone');
@@ -1097,9 +1097,33 @@
     renderFileList();
   }
 
-  playBtn.addEventListener('click', () => {
-    if (isPlaying) stopPlayback();
-    else startPlayback();
+  // iOS Safari requires audio to be "unlocked" via a direct user gesture.
+  // We play a silent 1-frame WAV on the first tap, which keeps the audio
+  // element unlocked for all subsequent timer-triggered play() calls.
+  let audioUnlocked = false;
+  const SILENT_WAV = 'data:audio/wav;base64,UklGRigAAABXQVZFZm10IBIAAAABAAEARKwAAIhYAQACABAAAABkYXRhAgAAAAEA';
+
+  async function unlockAudio() {
+    if (audioUnlocked) return;
+    try {
+      const prev = audio.src;
+      audio.src = SILENT_WAV;
+      audio.volume = 0;
+      await audio.play();
+      audio.pause();
+      audio.src = prev;
+      audio.volume = volSlider.value / 100;
+    } catch (_) {}
+    audioUnlocked = true;
+  }
+
+  playBtn.addEventListener('click', async () => {
+    if (isPlaying) {
+      stopPlayback();
+    } else {
+      await unlockAudio();
+      startPlayback();
+    }
   });
 </script>
 </body>
