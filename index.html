@@ -1,0 +1,1106 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Audio Repeat Player</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@300;400;500&family=Syne:wght@400;600;700;800&display=swap');
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg: #0e0f11;
+    --surface: #16181c;
+    --surface2: #1e2128;
+    --border: #2a2d36;
+    --border2: #3a3e4a;
+    --text: #e8eaf0;
+    --muted: #6b7280;
+    --accent: #f5a623;
+    --accent2: #e8902a;
+    --accent-dim: rgba(245,166,35,0.12);
+    --accent-dim2: rgba(245,166,35,0.06);
+    --danger: #e24b4a;
+    --success: #5dcaa5;
+    --mono: 'DM Mono', monospace;
+    --display: 'Syne', sans-serif;
+  }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--mono);
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 48px 24px 80px;
+  }
+
+  header {
+    text-align: center;
+    margin-bottom: 48px;
+  }
+
+  .logo {
+    font-family: var(--display);
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.3em;
+    color: var(--accent);
+    text-transform: uppercase;
+    margin-bottom: 12px;
+  }
+
+  h1 {
+    font-family: var(--display);
+    font-size: 36px;
+    font-weight: 800;
+    letter-spacing: -0.02em;
+    color: var(--text);
+    line-height: 1.1;
+  }
+
+  .subtitle {
+    margin-top: 8px;
+    font-size: 13px;
+    color: var(--muted);
+    letter-spacing: 0.03em;
+  }
+
+  .container {
+    width: 100%;
+    max-width: 680px;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+  }
+
+  .panel {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    overflow: hidden;
+  }
+
+  .panel-header {
+    padding: 14px 20px;
+    border-bottom: 1px solid var(--border);
+    font-size: 11px;
+    font-weight: 500;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--muted);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .panel-header::before {
+    content: '';
+    display: inline-block;
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--accent);
+    flex-shrink: 0;
+  }
+
+  /* Drop Zone */
+  .drop-zone {
+    padding: 40px 24px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 14px;
+    cursor: pointer;
+    transition: background 0.2s;
+    border: 2px dashed var(--border);
+    border-radius: 12px;
+    margin: 16px;
+    position: relative;
+  }
+
+  .drop-zone:hover, .drop-zone.drag-over {
+    background: var(--accent-dim2);
+    border-color: var(--accent);
+  }
+
+  .drop-icon {
+    width: 40px;
+    height: 40px;
+    border: 1.5px solid var(--border2);
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .drop-icon svg { width: 18px; height: 18px; }
+
+  .drop-label {
+    font-size: 14px;
+    color: var(--muted);
+    text-align: center;
+    line-height: 1.6;
+  }
+
+  .drop-label strong {
+    color: var(--accent);
+    font-weight: 500;
+  }
+
+  .drop-types {
+    font-size: 11px;
+    color: #4b5060;
+    letter-spacing: 0.08em;
+  }
+
+  #file-input { display: none; }
+
+  /* File List */
+  .file-list {
+    padding: 8px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    max-height: 280px;
+    overflow-y: auto;
+  }
+
+  .file-list:empty::before {
+    content: 'ファイルを追加してください';
+    display: block;
+    text-align: center;
+    padding: 20px;
+    color: var(--muted);
+    font-size: 13px;
+  }
+
+  .file-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 14px;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: background 0.15s;
+    border: 1px solid transparent;
+  }
+
+  .file-item:hover { background: var(--surface2); }
+
+  .file-item.active {
+    background: var(--accent-dim);
+    border-color: rgba(245,166,35,0.3);
+  }
+
+  .file-num {
+    font-size: 11px;
+    color: var(--muted);
+    min-width: 20px;
+    text-align: right;
+    font-weight: 500;
+  }
+
+  .file-item.active .file-num { color: var(--accent); }
+
+  .waveform-icon {
+    width: 28px;
+    height: 20px;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    gap: 2px;
+  }
+
+  .waveform-icon span {
+    display: block;
+    width: 3px;
+    background: var(--border2);
+    border-radius: 2px;
+    transition: background 0.2s, height 0.2s;
+  }
+
+  .file-item.active .waveform-icon span { background: var(--accent); }
+  .file-item.active.playing .waveform-icon span { animation: wave 0.8s ease-in-out infinite alternate; }
+  .file-item.active.playing .waveform-icon span:nth-child(1) { animation-delay: 0s; }
+  .file-item.active.playing .waveform-icon span:nth-child(2) { animation-delay: 0.15s; }
+  .file-item.active.playing .waveform-icon span:nth-child(3) { animation-delay: 0.3s; }
+  .file-item.active.playing .waveform-icon span:nth-child(4) { animation-delay: 0.1s; }
+  .file-item.active.playing .waveform-icon span:nth-child(5) { animation-delay: 0.25s; }
+
+  @keyframes wave {
+    0% { transform: scaleY(0.4); }
+    100% { transform: scaleY(1.0); }
+  }
+
+  .file-name {
+    flex: 1;
+    font-size: 13px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    color: var(--text);
+  }
+
+  .file-item.active .file-name { color: var(--accent); }
+
+  .file-duration {
+    font-size: 11px;
+    color: var(--muted);
+    flex-shrink: 0;
+  }
+
+  .file-delete {
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    border: none;
+    background: transparent;
+    color: var(--muted);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 14px;
+    opacity: 0;
+    transition: opacity 0.15s, background 0.15s, color 0.15s;
+  }
+
+  .file-item:hover .file-delete {
+    opacity: 1;
+  }
+
+  .file-delete:hover {
+    background: rgba(226,75,74,0.15);
+    color: var(--danger);
+  }
+
+  /* Controls */
+  .now-playing {
+    display: none;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 14px;
+    background: var(--accent-dim);
+    border: 1px solid rgba(245,166,35,0.25);
+    border-radius: 8px;
+    margin-top: 14px;
+  }
+
+  .now-playing.visible { display: flex; }
+
+  .np-label {
+    font-size: 10px;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    color: var(--accent);
+    flex-shrink: 0;
+  }
+
+  .np-name {
+    font-size: 13px;
+    color: var(--text);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    flex: 1;
+  }
+
+  .random-pick-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    width: calc(100% - 32px);
+    margin: 0 16px 14px;
+    height: 36px;
+    border-radius: 8px;
+    border: 1px dashed var(--border2);
+    background: transparent;
+    color: var(--muted);
+    font-family: var(--mono);
+    font-size: 12px;
+    letter-spacing: 0.08em;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+
+  .random-pick-btn:hover:not(:disabled) {
+    border-color: var(--accent);
+    color: var(--accent);
+    background: var(--accent-dim2);
+  }
+
+  .random-pick-btn:disabled { opacity: 0.3; cursor: not-allowed; }
+  .random-pick-btn svg { width: 13px; height: 13px; flex-shrink: 0; }
+
+  .controls {
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+  }
+
+  .control-row {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    flex-wrap: wrap;
+  }
+
+  .control-label {
+    font-size: 11px;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    color: var(--muted);
+    min-width: 80px;
+  }
+
+  .count-input-wrap {
+    display: flex;
+    align-items: center;
+    gap: 0;
+    border: 1px solid var(--border2);
+    border-radius: 8px;
+    overflow: hidden;
+  }
+
+  .count-btn {
+    width: 36px;
+    height: 36px;
+    background: var(--surface2);
+    border: none;
+    color: var(--text);
+    font-size: 18px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background 0.15s;
+    font-family: var(--mono);
+  }
+
+  .count-btn:hover { background: var(--border); }
+
+  #repeat-count {
+    width: 64px;
+    height: 36px;
+    background: var(--bg);
+    border: none;
+    border-left: 1px solid var(--border2);
+    border-right: 1px solid var(--border2);
+    color: var(--text);
+    font-family: var(--mono);
+    font-size: 15px;
+    text-align: center;
+    outline: none;
+  }
+
+  #repeat-count::-webkit-inner-spin-button,
+  #repeat-count::-webkit-outer-spin-button { -webkit-appearance: none; }
+
+  .play-btn {
+    flex: 1;
+    min-width: 140px;
+    height: 44px;
+    border-radius: 8px;
+    border: none;
+    font-family: var(--display);
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    transition: all 0.2s;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .play-btn.play {
+    background: var(--accent);
+    color: #0e0f11;
+  }
+
+  .play-btn.play:hover {
+    background: var(--accent2);
+    transform: translateY(-1px);
+  }
+
+  .play-btn.stop {
+    background: transparent;
+    color: var(--danger);
+    border: 1px solid var(--danger);
+  }
+
+  .play-btn.stop:hover {
+    background: rgba(226,75,74,0.1);
+  }
+
+  .play-btn:disabled {
+    opacity: 0.35;
+    cursor: not-allowed;
+    transform: none;
+  }
+
+  .play-icon {
+    width: 16px;
+    height: 16px;
+    flex-shrink: 0;
+  }
+
+  /* Progress */
+  .progress-panel {
+    padding: 20px;
+  }
+
+  .progress-header {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    margin-bottom: 12px;
+  }
+
+  .progress-label {
+    font-size: 11px;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+
+  .progress-count {
+    font-family: var(--display);
+    font-size: 20px;
+    font-weight: 800;
+    color: var(--accent);
+  }
+
+  .progress-count .denom {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--muted);
+  }
+
+  .progress-bar-track {
+    height: 4px;
+    background: var(--surface2);
+    border-radius: 99px;
+    overflow: hidden;
+    margin-bottom: 12px;
+  }
+
+  .progress-bar-fill {
+    height: 100%;
+    background: var(--accent);
+    border-radius: 99px;
+    width: 0%;
+    transition: width 0.4s ease;
+  }
+
+  .progress-dots {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 5px;
+  }
+
+  .dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    transition: all 0.3s ease;
+    flex-shrink: 0;
+  }
+
+  .dot.done {
+    background: var(--accent);
+    border-color: var(--accent);
+  }
+
+  .dot.current {
+    background: transparent;
+    border-color: var(--accent);
+    box-shadow: 0 0 0 2px var(--accent-dim);
+    animation: pulse-dot 0.8s ease-in-out infinite alternate;
+  }
+
+  @keyframes pulse-dot {
+    from { box-shadow: 0 0 0 2px var(--accent-dim); }
+    to   { box-shadow: 0 0 0 5px var(--accent-dim); }
+  }
+
+  .status-msg {
+    font-size: 12px;
+    color: var(--success);
+    margin-top: 12px;
+    min-height: 16px;
+    letter-spacing: 0.05em;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .status-msg::before {
+    content: '';
+    display: inline-block;
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: currentColor;
+    flex-shrink: 0;
+  }
+
+  .status-msg:empty { display: none; }
+
+  /* Volume */
+  .vol-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .vol-row svg { width: 14px; height: 14px; flex-shrink: 0; opacity: 0.5; }
+
+  input[type=range] {
+    -webkit-appearance: none;
+    height: 3px;
+    background: var(--border2);
+    border-radius: 99px;
+    outline: none;
+    flex: 1;
+  }
+
+  input[type=range]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    background: var(--accent);
+    cursor: pointer;
+  }
+
+  .vol-val {
+    font-size: 12px;
+    color: var(--muted);
+    min-width: 32px;
+    text-align: right;
+  }
+
+  /* scrollbar */
+  .file-list::-webkit-scrollbar { width: 4px; }
+  .file-list::-webkit-scrollbar-track { background: transparent; }
+  .file-list::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 2px; }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">Audio Repeat Player</div>
+  <h1>繰り返し再生</h1>
+  <p class="subtitle">音声ファイルを読み込み、指定回数だけ再生します</p>
+</header>
+
+<div class="container">
+
+  <!-- File Upload -->
+  <div class="panel">
+    <div class="panel-header">音声ファイル</div>
+    <div class="drop-zone" id="drop-zone">
+      <div class="drop-icon">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="color: var(--accent)">
+          <path d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1M16 8l-4-4-4 4M12 4v12"/>
+        </svg>
+      </div>
+      <div class="drop-label">
+        <strong>クリックまたはドラッグ</strong><br>して音声ファイルを追加
+      </div>
+      <div class="drop-types">MP3 · WAV · OGG · M4A · FLAC · AAC</div>
+      <input type="file" id="file-input" accept="audio/*" multiple>
+    </div>
+    <div class="file-list" id="file-list"></div>
+    <button class="random-pick-btn" id="random-pick-btn" disabled>
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="16 3 21 3 21 8"/><line x1="4" y1="20" x2="21" y2="3"/><polyline points="21 16 21 21 16 21"/><line x1="15" y1="15" x2="21" y2="21"/></svg>
+      ランダム選択
+    </button>
+  </div>
+
+  <!-- Controls -->
+  <div class="panel">
+    <div class="panel-header">再生設定</div>
+    <div class="controls">
+
+      <div class="control-row">
+        <span class="control-label">繰り返し回数</span>
+        <div class="count-input-wrap">
+          <button class="count-btn" id="dec-btn">−</button>
+          <input type="number" id="repeat-count" min="1" max="999" value="3">
+          <button class="count-btn" id="inc-btn">＋</button>
+        </div>
+        <span style="font-size: 13px; color: var(--muted);">回再生</span>
+      </div>
+
+      <div class="control-row">
+        <span class="control-label">クールタイム</span>
+        <div class="count-input-wrap">
+          <button class="count-btn" id="cool-dec-btn">−</button>
+          <input type="number" id="cooldown-sec" min="0" max="300" value="10" style="width:64px;height:36px;background:var(--bg);border:none;border-left:1px solid var(--border2);border-right:1px solid var(--border2);color:var(--text);font-family:var(--mono);font-size:15px;text-align:center;outline:none;">
+          <button class="count-btn" id="cool-inc-btn">＋</button>
+        </div>
+        <span style="font-size: 13px; color: var(--muted);">秒</span>
+      </div>
+
+      <div class="control-row">
+        <span class="control-label">開始待ち</span>
+        <div class="count-input-wrap">
+          <button class="count-btn" id="start-dec-btn">−</button>
+          <input type="number" id="start-delay-sec" min="0" max="300" value="2" style="width:64px;height:36px;background:var(--bg);border:none;border-left:1px solid var(--border2);border-right:1px solid var(--border2);color:var(--text);font-family:var(--mono);font-size:15px;text-align:center;outline:none;">
+          <button class="count-btn" id="start-inc-btn">＋</button>
+        </div>
+        <span style="font-size: 13px; color: var(--muted);">秒（初回のみ）</span>
+      </div>
+
+      <div class="control-row">
+        <span class="control-label">音量</span>
+        <div class="vol-row" style="flex:1">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon></svg>
+          <input type="range" id="volume" min="0" max="100" value="80">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon><path d="M15.54 8.46a5 5 0 010 7.07M19.07 4.93a10 10 0 010 14.14"></path></svg>
+          <span class="vol-val" id="vol-val">80%</span>
+        </div>
+      </div>
+
+      <div class="control-row">
+        <button class="play-btn play" id="play-btn" disabled>
+          <svg class="play-icon" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+          再生開始
+        </button>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- Progress -->
+  <div class="panel">
+    <div class="panel-header">再生状況</div>
+    <div class="progress-panel">
+      <div class="progress-header">
+        <span class="progress-label">完了</span>
+        <span class="progress-count" id="count-display">
+          <span id="current-count">0</span><span class="denom"> / <span id="total-count">0</span></span>
+        </span>
+      </div>
+      <div class="progress-bar-track">
+        <div class="progress-bar-fill" id="progress-bar"></div>
+      </div>
+      <div class="progress-dots" id="progress-dots"></div>
+
+      <div class="now-playing" id="now-playing">
+        <span class="np-label">再生中</span>
+        <span class="np-name" id="np-name">—</span>
+      </div>
+
+      <div id="cooldown-display" style="display:none;margin-top:16px;">
+        <div style="display:flex;align-items:center;gap:12px;">
+          <span id="cooldown-label" style="font-size:11px;letter-spacing:0.15em;text-transform:uppercase;color:var(--muted);">クールタイム</span>
+          <div style="flex:1;height:3px;background:var(--surface2);border-radius:99px;overflow:hidden;">
+            <div id="cool-bar" style="height:100%;background:var(--accent);border-radius:99px;width:100%;transition:width 1s linear;"></div>
+          </div>
+          <span id="cool-timer" style="font-family:var(--display);font-size:18px;font-weight:700;color:var(--accent);min-width:32px;text-align:right;">0</span>
+          <span style="font-size:12px;color:var(--muted);">秒</span>
+        </div>
+      </div>
+
+      <div class="status-msg" id="status-msg"></div>
+    </div>
+  </div>
+
+</div>
+
+<audio id="audio-player"></audio>
+
+<script>
+  const dropZone = document.getElementById('drop-zone');
+  const fileInput = document.getElementById('file-input');
+  const fileList = document.getElementById('file-list');
+  const playBtn = document.getElementById('play-btn');
+  const repeatCount = document.getElementById('repeat-count');
+  const audio = document.getElementById('audio-player');
+  const progressBar = document.getElementById('progress-bar');
+  const progressDots = document.getElementById('progress-dots');
+  const currentCountEl = document.getElementById('current-count');
+  const totalCountEl = document.getElementById('total-count');
+  const statusMsg = document.getElementById('status-msg');
+  const volSlider = document.getElementById('volume');
+  const volVal = document.getElementById('vol-val');
+  const cooldownSec = document.getElementById('cooldown-sec');
+  const startDelaySec = document.getElementById('start-delay-sec');
+  const cooldownDisplay = document.getElementById('cooldown-display');
+  const cooldownLabel = document.getElementById('cooldown-label');
+  const coolBar = document.getElementById('cool-bar');
+  const coolTimer = document.getElementById('cool-timer');
+  const nowPlaying = document.getElementById('now-playing');
+  const npName = document.getElementById('np-name');
+  const randomPickBtn = document.getElementById('random-pick-btn');
+
+  let files = [];
+  let selectedIndex = -1;
+  let playingIndex = -1;
+  let isPlaying = false;
+  let currentPlay = 0;
+  let targetPlays = 0;
+  let cooldownTimer = null;
+  let isCoolingDown = false;
+
+  // Random pick button
+  randomPickBtn.addEventListener('click', () => {
+    if (files.length === 0 || isPlaying) return;
+    selectedIndex = Math.floor(Math.random() * files.length);
+    renderFileList();
+    updatePlayBtn();
+    resetProgress();
+  });
+
+  // Volume
+  volSlider.addEventListener('input', () => {
+    audio.volume = volSlider.value / 100;
+    volVal.textContent = volSlider.value + '%';
+  });
+  audio.volume = 0.8;
+
+  // Count buttons
+  document.getElementById('dec-btn').addEventListener('click', () => {
+    const v = parseInt(repeatCount.value) || 1;
+    if (v > 1) repeatCount.value = v - 1;
+  });
+  document.getElementById('inc-btn').addEventListener('click', () => {
+    const v = parseInt(repeatCount.value) || 1;
+    if (v < 999) repeatCount.value = v + 1;
+  });
+
+  document.getElementById('cool-dec-btn').addEventListener('click', () => {
+    const v = parseInt(cooldownSec.value) || 0;
+    if (v > 0) cooldownSec.value = v - 1;
+  });
+  document.getElementById('cool-inc-btn').addEventListener('click', () => {
+    const v = parseInt(cooldownSec.value) || 0;
+    if (v < 300) cooldownSec.value = v + 1;
+  });
+
+  document.getElementById('start-dec-btn').addEventListener('click', () => {
+    const v = parseInt(startDelaySec.value) || 0;
+    if (v > 0) startDelaySec.value = v - 1;
+  });
+  document.getElementById('start-inc-btn').addEventListener('click', () => {
+    const v = parseInt(startDelaySec.value) || 0;
+    if (v < 300) startDelaySec.value = v + 1;
+  });
+
+  // Drop zone
+  dropZone.addEventListener('click', () => fileInput.click());
+
+  dropZone.addEventListener('dragover', e => {
+    e.preventDefault();
+    dropZone.classList.add('drag-over');
+  });
+
+  dropZone.addEventListener('dragleave', () => dropZone.classList.remove('drag-over'));
+
+  dropZone.addEventListener('drop', e => {
+    e.preventDefault();
+    dropZone.classList.remove('drag-over');
+    addFiles([...e.dataTransfer.files].filter(f => f.type.startsWith('audio/')));
+  });
+
+  fileInput.addEventListener('change', () => {
+    addFiles([...fileInput.files]);
+    fileInput.value = '';
+  });
+
+  function addFiles(newFiles) {
+    newFiles.forEach(f => {
+      if (!files.find(x => x.name === f.name && x.size === f.size)) {
+        files.push(f);
+      }
+    });
+    renderFileList();
+    updatePlayBtn();
+    randomPickBtn.disabled = files.length === 0 || isPlaying;
+  }
+
+  function formatDuration(secs) {
+    if (!isFinite(secs)) return '--:--';
+    const m = Math.floor(secs / 60);
+    const s = Math.floor(secs % 60);
+    return `${m}:${String(s).padStart(2,'0')}`;
+  }
+
+  function renderFileList() {
+    fileList.innerHTML = '';
+    if (files.length === 0) return;
+
+    files.forEach((f, i) => {
+      const item = document.createElement('div');
+      const isActive = i === selectedIndex;
+      item.className = 'file-item' + (isActive ? ' active' : '');
+      if (isPlaying && i === playingIndex) item.classList.add('playing');
+
+      const barHeights = [8, 14, 18, 12, 10];
+
+      item.innerHTML = `
+        <span class="file-num">${i + 1}</span>
+        <div class="waveform-icon">
+          ${barHeights.map(h => `<span style="height:${h}px"></span>`).join('')}
+        </div>
+        <span class="file-name" title="${f.name}">${f.name}</span>
+        <span class="file-duration" data-idx="${i}">--:--</span>
+        <button class="file-delete" data-idx="${i}" title="削除">×</button>
+      `;
+
+      item.addEventListener('click', (e) => {
+        if (e.target.classList.contains('file-delete')) return;
+        if (isPlaying) return;
+        selectedIndex = i;
+        renderFileList();
+        updatePlayBtn();
+        resetProgress();
+      });
+
+      item.querySelector('.file-delete').addEventListener('click', (e) => {
+        e.stopPropagation();
+        if (isPlaying) return;
+        if (i === selectedIndex) selectedIndex = -1;
+        else if (i < selectedIndex) selectedIndex--;
+        files.splice(i, 1);
+        renderFileList();
+        updatePlayBtn();
+        resetProgress();
+      });
+
+      fileList.appendChild(item);
+
+      // Load duration
+      const url = URL.createObjectURL(f);
+      const tmp = new Audio(url);
+      tmp.addEventListener('loadedmetadata', () => {
+        const span = fileList.querySelector(`.file-duration[data-idx="${i}"]`);
+        if (span) span.textContent = formatDuration(tmp.duration);
+        URL.revokeObjectURL(url);
+      });
+    });
+  }
+
+  function updatePlayBtn() {
+    const canPlay = selectedIndex >= 0 && !isPlaying;
+    randomPickBtn.disabled = files.length === 0 || isPlaying;
+    if (isPlaying) {
+      playBtn.className = 'play-btn stop';
+      playBtn.innerHTML = `
+        <svg class="play-icon" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>
+        停止
+      `;
+      playBtn.disabled = false;
+    } else {
+      playBtn.className = 'play-btn play';
+      playBtn.innerHTML = `
+        <svg class="play-icon" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+        再生開始
+      `;
+      playBtn.disabled = !canPlay;
+    }
+  }
+
+  function resetProgress() {
+    currentPlay = 0;
+    targetPlays = 0;
+    playingIndex = -1;
+    progressBar.style.width = '0%';
+    progressDots.innerHTML = '';
+    currentCountEl.textContent = '0';
+    totalCountEl.textContent = '0';
+    statusMsg.textContent = '';
+    nowPlaying.classList.remove('visible');
+  }
+
+  function buildDots(total) {
+    progressDots.innerHTML = '';
+    const max = Math.min(total, 100);
+    for (let i = 0; i < max; i++) {
+      const d = document.createElement('div');
+      d.className = 'dot';
+      progressDots.appendChild(d);
+    }
+    if (total > 100) {
+      const more = document.createElement('div');
+      more.style.cssText = 'font-size:11px;color:var(--muted);display:flex;align-items:center;padding:0 4px;';
+      more.textContent = `+${total - 100}`;
+      progressDots.appendChild(more);
+    }
+  }
+
+  function updateDots(done, total) {
+    const dots = progressDots.querySelectorAll('.dot');
+    const max = Math.min(total, 100);
+    for (let i = 0; i < max; i++) {
+      dots[i].className = 'dot';
+      if (i < done) dots[i].classList.add('done');
+      else if (i === done) dots[i].classList.add('current');
+    }
+  }
+
+  function startPlayback() {
+    if (selectedIndex < 0) return;
+    targetPlays = parseInt(repeatCount.value) || 1;
+    currentPlay = 0;
+    playingIndex = selectedIndex;
+    isPlaying = true;
+    statusMsg.textContent = '';
+
+    buildDots(targetPlays);
+    totalCountEl.textContent = targetPlays;
+    currentCountEl.textContent = 0;
+    progressBar.style.width = '0%';
+
+    updatePlayBtn();
+    renderFileList();
+
+    const sd = parseInt(startDelaySec.value) || 0;
+    if (sd > 0) {
+      startCooldown(sd, '開始待ち', () => { if (isPlaying) playNext(); });
+    } else {
+      playNext();
+    }
+  }
+
+  async function playNext() {
+    if (currentPlay >= targetPlays || !isPlaying) {
+      finishPlayback();
+      return;
+    }
+
+    updateDots(currentPlay, targetPlays);
+
+    playingIndex = selectedIndex;
+    const file = files[playingIndex];
+    if (!file) { finishPlayback(); return; }
+
+    npName.textContent = file.name;
+    nowPlaying.classList.add('visible');
+    renderFileList();
+
+    const url = URL.createObjectURL(file);
+    audio.src = url;
+    audio.load();
+    audio.volume = volSlider.value / 100;
+
+    try {
+      await audio.play();
+    } catch (e) {
+      URL.revokeObjectURL(url);
+      isPlaying = false;
+      clearCooldown();
+      updatePlayBtn();
+      renderFileList();
+      statusMsg.textContent = '再生できませんでした: ' + e.message;
+    }
+  }
+
+  audio.addEventListener('ended', () => {
+    const prevUrl = audio.src;
+    audio.src = '';
+    try { URL.revokeObjectURL(prevUrl); } catch(_) {}
+    currentPlay++;
+    const pct = Math.round((currentPlay / targetPlays) * 100);
+    progressBar.style.width = pct + '%';
+    currentCountEl.textContent = currentPlay;
+    updateDots(currentPlay, targetPlays);
+
+    if (currentPlay < targetPlays && isPlaying) {
+      const cd = parseInt(cooldownSec.value) || 0;
+      if (cd > 0) {
+        startCooldown(cd, 'クールタイム', () => { if (isPlaying) playNext(); });
+      } else {
+        playNext();
+      }
+    } else {
+      finishPlayback();
+    }
+  });
+
+  function startCooldown(secs, label, onDone) {
+    isCoolingDown = true;
+    let remaining = secs;
+    cooldownLabel.textContent = label;
+    cooldownDisplay.style.display = 'block';
+    coolTimer.textContent = remaining;
+    coolBar.style.transition = 'none';
+    coolBar.style.width = '100%';
+
+    setTimeout(() => {
+      coolBar.style.transition = `width ${secs}s linear`;
+      coolBar.style.width = '0%';
+    }, 50);
+
+    cooldownTimer = setInterval(() => {
+      remaining--;
+      coolTimer.textContent = remaining;
+      if (remaining <= 0) {
+        clearInterval(cooldownTimer);
+        cooldownTimer = null;
+        cooldownDisplay.style.display = 'none';
+        isCoolingDown = false;
+        onDone();
+      }
+    }, 1000);
+  }
+
+  function clearCooldown() {
+    if (cooldownTimer) {
+      clearInterval(cooldownTimer);
+      cooldownTimer = null;
+    }
+    cooldownDisplay.style.display = 'none';
+    isCoolingDown = false;
+  }
+
+  function finishPlayback() {
+    isPlaying = false;
+    audio.src = '';
+    clearCooldown();
+    playingIndex = -1;
+    nowPlaying.classList.remove('visible');
+    updatePlayBtn();
+    renderFileList();
+    if (currentPlay >= targetPlays) {
+      statusMsg.textContent = `${targetPlays}回の再生が完了しました`;
+      progressBar.style.width = '100%';
+      updateDots(targetPlays, targetPlays);
+    }
+  }
+
+  function stopPlayback() {
+    isPlaying = false;
+    audio.pause();
+    URL.revokeObjectURL(audio.src);
+    audio.src = '';
+    clearCooldown();
+    playingIndex = -1;
+    nowPlaying.classList.remove('visible');
+    statusMsg.textContent = `${currentPlay}回で停止しました`;
+    updatePlayBtn();
+    renderFileList();
+  }
+
+  playBtn.addEventListener('click', () => {
+    if (isPlaying) stopPlayback();
+    else startPlayback();
+  });
+</script>
+</body>
+</html>
