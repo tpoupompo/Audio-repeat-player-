@@ -1114,29 +1114,31 @@
     renderFileList();
   }
 
-  let audioUnlocked = false;
   const SILENT_WAV = 'data:audio/wav;base64,UklGRigAAABXQVZFZm10IBIAAAABAAEARKwAAIhYAQACABAAAABkYXRhAgAAAAEA';
 
-  function unlockAudio() {
-    if (audioUnlocked) return;
-    audioUnlocked = true;
-    audio.src = SILENT_WAV;
-    audio.volume = 0;
-    audio.play().then(() => {
-      audio.pause();
-      audio.src = '';
-      audio.volume = volSlider.value / 100;
-    }).catch(() => {
-      audio.src = '';
-      audio.volume = volSlider.value / 100;
-    });
-  }
-
   playBtn.addEventListener('click', () => {
-    if (isPlaying) {
-      stopPlayback();
+    if (isPlaying) { stopPlayback(); return; }
+
+    // iOS Safari: audio.play() must be called synchronously inside a user gesture.
+    // We play a silent WAV first to unlock the element, then start real playback
+    // only after that promise resolves — avoiding the "operation aborted" race.
+    audio.volume = 0;
+    audio.src = SILENT_WAV;
+    const p = audio.play();
+    if (p !== undefined) {
+      p.then(() => {
+        audio.pause();
+        audio.src = '';
+        audio.volume = volSlider.value / 100;
+        startPlayback();
+      }).catch(() => {
+        audio.src = '';
+        audio.volume = volSlider.value / 100;
+        startPlayback();
+      });
     } else {
-      unlockAudio();
+      // 古いブラウザ (Promise を返さない)
+      audio.volume = volSlider.value / 100;
       startPlayback();
     }
   });
