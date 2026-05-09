@@ -888,13 +888,16 @@
       fileList.appendChild(item);
 
       // Load duration
-      const url = URL.createObjectURL(f);
-      const tmp = new Audio(url);
-      tmp.addEventListener('loadedmetadata', () => {
-        const span = fileList.querySelector(`.file-duration[data-idx="${i}"]`);
-        if (span) span.textContent = formatDuration(tmp.duration);
-        URL.revokeObjectURL(url);
-      });
+      const tmp = new Audio();
+      const reader = new FileReader();
+      reader.onload = e => {
+        tmp.src = e.target.result;
+        tmp.addEventListener('loadedmetadata', () => {
+          const span = fileList.querySelector(`.file-duration[data-idx="${i}"]`);
+          if (span) span.textContent = formatDuration(tmp.duration);
+        });
+      };
+      reader.readAsDataURL(f);
     });
   }
 
@@ -980,6 +983,15 @@
     }
   }
 
+  function fileToDataURL(file) {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = e => resolve(e.target.result);
+      reader.onerror = () => reject(new Error('ファイル読み込み失敗'));
+      reader.readAsDataURL(file);
+    });
+  }
+
   async function playNext() {
     if (currentPlay >= targetPlays || !isPlaying) {
       finishPlayback();
@@ -996,15 +1008,13 @@
     nowPlaying.classList.add('visible');
     renderFileList();
 
-    const url = URL.createObjectURL(file);
-    audio.src = url;
-    audio.load();
-    audio.volume = volSlider.value / 100;
-
     try {
+      const dataUrl = await fileToDataURL(file);
+      audio.src = dataUrl;
+      audio.load();
+      audio.volume = volSlider.value / 100;
       await audio.play();
     } catch (e) {
-      URL.revokeObjectURL(url);
       isPlaying = false;
       clearCooldown();
       updatePlayBtn();
@@ -1014,9 +1024,7 @@
   }
 
   audio.addEventListener('ended', () => {
-    const prevUrl = audio.src;
     audio.src = '';
-    try { URL.revokeObjectURL(prevUrl); } catch(_) {}
     currentPlay++;
     const pct = Math.round((currentPlay / targetPlays) * 100);
     progressBar.style.width = pct + '%';
@@ -1089,7 +1097,6 @@
   function stopPlayback() {
     isPlaying = false;
     audio.pause();
-    URL.revokeObjectURL(audio.src);
     audio.src = '';
     clearCooldown();
     playingIndex = -1;
