@@ -750,6 +750,7 @@
   const randomPickBtn = document.getElementById('random-pick-btn');
 
   let files = [];
+  let dataURLCache = new Map(); // "name|size" -> data URL
   let selectedIndex = -1;
   let playingIndex = -1;
   let isPlaying = false;
@@ -757,6 +758,19 @@
   let targetPlays = 0;
   let cooldownTimer = null;
   let isCoolingDown = false;
+
+  function fileKey(f) { return f.name + '|' + f.size; }
+
+  function cacheFile(f) {
+    const key = fileKey(f);
+    if (dataURLCache.has(key)) return Promise.resolve(dataURLCache.get(key));
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = e => { dataURLCache.set(key, e.target.result); resolve(e.target.result); };
+      reader.onerror = reject;
+      reader.readAsDataURL(f);
+    });
+  }
 
   // Random pick button
   randomPickBtn.addEventListener('click', () => {
@@ -829,6 +843,7 @@
     newFiles.forEach(f => {
       if (!files.find(x => x.name === f.name && x.size === f.size)) {
         files.push(f);
+        cacheFile(f); // キャッシュをバックグラウンドで作成
       }
     });
     renderFileList();
@@ -887,17 +902,15 @@
 
       fileList.appendChild(item);
 
-      // Load duration
-      const tmp = new Audio();
-      const reader = new FileReader();
-      reader.onload = e => {
-        tmp.src = e.target.result;
+      // 再生時間取得（キャッシュから）
+      cacheFile(f).then(dataUrl => {
+        const tmp = new Audio();
+        tmp.src = dataUrl;
         tmp.addEventListener('loadedmetadata', () => {
           const span = fileList.querySelector(`.file-duration[data-idx="${i}"]`);
           if (span) span.textContent = formatDuration(tmp.duration);
         });
-      };
-      reader.readAsDataURL(f);
+      }).catch(() => {});
     });
   }
 
@@ -983,16 +996,7 @@
     }
   }
 
-  function fileToDataURL(file) {
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onload = e => resolve(e.target.result);
-      reader.onerror = () => reject(new Error('ファイル読み込み失敗'));
-      reader.readAsDataURL(file);
-    });
-  }
-
-  async function playNext() {
+  function playNext() {
     if (currentPlay >= targetPlays || !isPlaying) {
       finishPlayback();
       return;
@@ -1004,23 +1008,27 @@
     const file = files[playingIndex];
     if (!file) { finishPlayback(); return; }
 
+    const dataUrl = dataURLCache.get(fileKey(file));
+    if (!dataUrl) {
+      statusMsg.textContent = 'ファイルの読み込みが完了していません。少し待ってから再試行してください。';
+      isPlaying = false;
+      updatePlayBtn();
+      return;
+    }
+
     npName.textContent = file.name;
     nowPlaying.classList.add('visible');
     renderFileList();
 
-    try {
-      const dataUrl = await fileToDataURL(file);
-      audio.src = dataUrl;
-      audio.load();
-      audio.volume = volSlider.value / 100;
-      await audio.play();
-    } catch (e) {
+    audio.src = dataUrl;
+    audio.volume = volSlider.value / 100;
+    audio.play().catch(e => {
       isPlaying = false;
       clearCooldown();
       updatePlayBtn();
       renderFileList();
       statusMsg.textContent = '再生できませんでした: ' + e.message;
-    }
+    });
   }
 
   audio.addEventListener('ended', () => {
@@ -1106,31 +1114,29 @@
     renderFileList();
   }
 
-  // iOS Safari requires audio to be "unlocked" via a direct user gesture.
-  // We play a silent 1-frame WAV on the first tap, which keeps the audio
-  // element unlocked for all subsequent timer-triggered play() calls.
   let audioUnlocked = false;
   const SILENT_WAV = 'data:audio/wav;base64,UklGRigAAABXQVZFZm10IBIAAAABAAEARKwAAIhYAQACABAAAABkYXRhAgAAAAEA';
 
-  async function unlockAudio() {
+  function unlockAudio() {
     if (audioUnlocked) return;
-    try {
-      const prev = audio.src;
-      audio.src = SILENT_WAV;
-      audio.volume = 0;
-      await audio.play();
-      audio.pause();
-      audio.src = prev;
-      audio.volume = volSlider.value / 100;
-    } catch (_) {}
     audioUnlocked = true;
+    audio.src = SILENT_WAV;
+    audio.volume = 0;
+    audio.play().then(() => {
+      audio.pause();
+      audio.src = '';
+      audio.volume = volSlider.value / 100;
+    }).catch(() => {
+      audio.src = '';
+      audio.volume = volSlider.value / 100;
+    });
   }
 
-  playBtn.addEventListener('click', async () => {
+  playBtn.addEventListener('click', () => {
     if (isPlaying) {
       stopPlayback();
     } else {
-      await unlockAudio();
+      unlockAudio();
       startPlayback();
     }
   });
