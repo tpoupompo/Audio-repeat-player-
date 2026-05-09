@@ -622,7 +622,7 @@
         <strong>クリックまたはドラッグ</strong><br>して音声ファイルを追加
       </div>
       <div class="drop-types">MP3 · WAV · OGG · M4A · FLAC · AAC</div>
-      <input type="file" id="file-input" accept="audio/*" multiple>
+      <input type="file" id="file-input" accept=".mp3,.wav,.ogg,.m4a,.aac,.flac,.mp4,.opus,audio/mpeg,audio/wav,audio/ogg,audio/mp4,audio/x-m4a,audio/aac,audio/flac,audio/opus" multiple>
     </div>
     <div class="file-list" id="file-list"></div>
     <button class="random-pick-btn" id="random-pick-btn" disabled>
@@ -812,10 +812,12 @@
 
   dropZone.addEventListener('dragleave', () => dropZone.classList.remove('drag-over'));
 
+  const AUDIO_EXTS = /\.(mp3|wav|ogg|m4a|aac|flac|mp4|opus)$/i;
+
   dropZone.addEventListener('drop', e => {
     e.preventDefault();
     dropZone.classList.remove('drag-over');
-    addFiles([...e.dataTransfer.files].filter(f => f.type.startsWith('audio/')));
+    addFiles([...e.dataTransfer.files].filter(f => f.type.startsWith('audio/') || AUDIO_EXTS.test(f.name)));
   });
 
   fileInput.addEventListener('change', () => {
