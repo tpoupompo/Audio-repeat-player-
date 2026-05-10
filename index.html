@@ -724,6 +724,7 @@
 </div>
 
 <audio id="audio-player" playsinline webkit-playsinline></audio>
+<audio id="audio-silent" playsinline webkit-playsinline src="data:audio/wav;base64,UklGRigAAABXQVZFZm10IBIAAAABAAEARKwAAIhYAQACABAAAABkYXRhAgAAAAEA"></audio>
 
 <script>
   const dropZone = document.getElementById('drop-zone');
@@ -974,7 +975,6 @@
   }
 
   function startPlayback() {
-    if (selectedIndex < 0) return;
     targetPlays = parseInt(repeatCount.value) || 1;
     currentPlay = 0;
     playingIndex = selectedIndex;
@@ -986,32 +986,25 @@
     currentCountEl.textContent = 0;
     progressBar.style.width = '0%';
 
+    audio.volume = volSlider.value / 100;
+
     const file = files[selectedIndex];
     npName.textContent = file.name;
     nowPlaying.classList.add('visible');
-
-    // blob URLをセッション開始時に1回だけセット。
-    // iOSはaudio.srcを変えるたびに活性化状態がリセットされるため、
-    // 繰り返し再生中はsrcを変えずcurrentTimeだけ巻き戻す。
-    if (currentBlobUrl) URL.revokeObjectURL(currentBlobUrl);
-    currentBlobUrl = URL.createObjectURL(file);
-    audio.src = currentBlobUrl;
-    audio.load();
-    audio.volume = volSlider.value / 100;
 
     updatePlayBtn();
     renderFileList();
 
     const sd = parseInt(startDelaySec.value) || 0;
     if (sd > 0) {
-      // ユーザー操作のコンテキストでplay()を呼んで要素をアンロック→即pause
+      // ユーザー操作コンテキストで play()→即pause してアクティベート確定
       const p = audio.play();
       if (p) p.catch(() => {});
       audio.pause();
       audio.currentTime = 0;
       startCooldown(sd, '開始待ち', () => { if (isPlaying) doPlay(); });
     } else {
-      doPlay(); // 同期的に呼ぶ（ユーザー操作のコールスタック内）
+      doPlay();
     }
   }
 
@@ -1117,8 +1110,25 @@
     renderFileList();
   }
 
+  const audioSilent = document.getElementById('audio-silent');
+
   playBtn.addEventListener('click', () => {
     if (isPlaying) { stopPlayback(); return; }
+    if (selectedIndex < 0) return;
+
+    // iOS Safari 対策:
+    // ユーザー操作のコンテキストで
+    //   1. 無音ファイルを play() してオーディオを解放
+    //   2. 再生したいファイルを load() して要素をアクティベート
+    // この2ステップを同期的に行うことで、
+    // その後タイマー経由で play() しても iOS にブロックされなくなる。
+    audioSilent.play().catch(() => {});
+
+    if (currentBlobUrl) URL.revokeObjectURL(currentBlobUrl);
+    currentBlobUrl = URL.createObjectURL(files[selectedIndex]);
+    audio.src = currentBlobUrl;
+    audio.load(); // ← ユーザー操作中に load() するのが重要
+
     startPlayback();
   });
 </script>
