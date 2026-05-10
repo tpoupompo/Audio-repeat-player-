@@ -750,7 +750,8 @@
   const randomPickBtn = document.getElementById('random-pick-btn');
 
   let files = [];
-  let dataURLCache = new Map(); // "name|size" -> data URL
+  let dataURLCache = new Map();
+  let currentBlobUrl = null;
   let selectedIndex = -1;
   let playingIndex = -1;
   let isPlaying = false;
@@ -985,56 +986,46 @@
     currentCountEl.textContent = 0;
     progressBar.style.width = '0%';
 
+    const file = files[selectedIndex];
+    npName.textContent = file.name;
+    nowPlaying.classList.add('visible');
+
+    // blob URLをセッション開始時に1回だけセット。
+    // iOSはaudio.srcを変えるたびに活性化状態がリセットされるため、
+    // 繰り返し再生中はsrcを変えずcurrentTimeだけ巻き戻す。
+    if (currentBlobUrl) URL.revokeObjectURL(currentBlobUrl);
+    currentBlobUrl = URL.createObjectURL(file);
+    audio.src = currentBlobUrl;
+    audio.load();
+    audio.volume = volSlider.value / 100;
+
     updatePlayBtn();
     renderFileList();
 
     const sd = parseInt(startDelaySec.value) || 0;
     if (sd > 0) {
-      // iOS: play() を同期的に呼んでオーディオ要素をアンロックする。
-      // blob URL は data URL のサイズ制限を受けないため実再生に使う。
-      const file = files[selectedIndex];
-      const unlockUrl = URL.createObjectURL(file);
-      audio.src = unlockUrl;
-      audio.volume = 0;
+      // ユーザー操作のコンテキストでplay()を呼んで要素をアンロック→即pause
       const p = audio.play();
       if (p) p.catch(() => {});
       audio.pause();
       audio.currentTime = 0;
-      audio.volume = volSlider.value / 100;
-      // アンロック用URLは不要になったので即解放
-      setTimeout(() => URL.revokeObjectURL(unlockUrl), 1000);
-      startCooldown(sd, '開始待ち', () => { if (isPlaying) playNext(); });
+      startCooldown(sd, '開始待ち', () => { if (isPlaying) doPlay(); });
     } else {
-      // No delay: call playNext() synchronously (still in user gesture callstack)
-      playNext();
+      doPlay(); // 同期的に呼ぶ（ユーザー操作のコールスタック内）
     }
   }
 
-  function playNext() {
-    if (currentPlay >= targetPlays || !isPlaying) {
-      finishPlayback();
-      return;
-    }
-
+  // srcは変えずcurrentTimeを0に戻してplay()するだけ
+  function doPlay() {
+    if (!isPlaying) return;
     updateDots(currentPlay, targetPlays);
-
-    playingIndex = selectedIndex;
-    const file = files[playingIndex];
-    if (!file) { finishPlayback(); return; }
-
-    npName.textContent = file.name;
-    nowPlaying.classList.add('visible');
     renderFileList();
-
-    // blob URL を使う: data URL よりサイズ制限がなく iOS でも安定して再生できる
-    const blobUrl = URL.createObjectURL(file);
-    audio.src = blobUrl;
-    audio.load();
+    audio.currentTime = 0;
     audio.volume = volSlider.value / 100;
     audio.play().catch(e => {
-      URL.revokeObjectURL(blobUrl);
       isPlaying = false;
       clearCooldown();
+      nowPlaying.classList.remove('visible');
       updatePlayBtn();
       renderFileList();
       statusMsg.textContent = '再生できませんでした: ' + e.message;
@@ -1042,9 +1033,6 @@
   }
 
   audio.addEventListener('ended', () => {
-    const prev = audio.src;
-    audio.src = '';
-    if (prev.startsWith('blob:')) URL.revokeObjectURL(prev);
     currentPlay++;
     const pct = Math.round((currentPlay / targetPlays) * 100);
     progressBar.style.width = pct + '%';
@@ -1054,9 +1042,9 @@
     if (currentPlay < targetPlays && isPlaying) {
       const cd = parseInt(cooldownSec.value) || 0;
       if (cd > 0) {
-        startCooldown(cd, 'クールタイム', () => { if (isPlaying) playNext(); });
+        startCooldown(cd, 'クールタイム', () => { if (isPlaying) doPlay(); });
       } else {
-        playNext();
+        doPlay(); // srcはそのまま、currentTimeだけ巻き戻して再生
       }
     } else {
       finishPlayback();
@@ -1101,7 +1089,9 @@
 
   function finishPlayback() {
     isPlaying = false;
+    audio.pause();
     audio.src = '';
+    if (currentBlobUrl) { URL.revokeObjectURL(currentBlobUrl); currentBlobUrl = null; }
     clearCooldown();
     playingIndex = -1;
     nowPlaying.classList.remove('visible');
@@ -1117,9 +1107,8 @@
   function stopPlayback() {
     isPlaying = false;
     audio.pause();
-    const prev = audio.src;
     audio.src = '';
-    if (prev.startsWith('blob:')) URL.revokeObjectURL(prev);
+    if (currentBlobUrl) { URL.revokeObjectURL(currentBlobUrl); currentBlobUrl = null; }
     clearCooldown();
     playingIndex = -1;
     nowPlaying.classList.remove('visible');
