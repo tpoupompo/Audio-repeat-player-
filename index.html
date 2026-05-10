@@ -990,8 +990,23 @@
 
     const sd = parseInt(startDelaySec.value) || 0;
     if (sd > 0) {
+      // iOS: audio.play() must be called synchronously in the user gesture.
+      // Touch the element with the real file now to unlock it,
+      // then immediately pause — the element stays unlocked for the session.
+      const file = files[selectedIndex];
+      const dataUrl = dataURLCache.get(fileKey(file));
+      if (dataUrl) {
+        audio.src = dataUrl;
+        audio.volume = 0;
+        const p = audio.play();
+        if (p) p.catch(() => {});
+        audio.pause();
+        audio.currentTime = 0;
+        audio.volume = volSlider.value / 100;
+      }
       startCooldown(sd, '開始待ち', () => { if (isPlaying) playNext(); });
     } else {
+      // No delay: call playNext() synchronously (still in user gesture callstack)
       playNext();
     }
   }
@@ -1114,33 +1129,9 @@
     renderFileList();
   }
 
-  const SILENT_WAV = 'data:audio/wav;base64,UklGRigAAABXQVZFZm10IBIAAAABAAEARKwAAIhYAQACABAAAABkYXRhAgAAAAEA';
-
   playBtn.addEventListener('click', () => {
     if (isPlaying) { stopPlayback(); return; }
-
-    // iOS Safari: audio.play() must be called synchronously inside a user gesture.
-    // We play a silent WAV first to unlock the element, then start real playback
-    // only after that promise resolves — avoiding the "operation aborted" race.
-    audio.volume = 0;
-    audio.src = SILENT_WAV;
-    const p = audio.play();
-    if (p !== undefined) {
-      p.then(() => {
-        audio.pause();
-        audio.src = '';
-        audio.volume = volSlider.value / 100;
-        startPlayback();
-      }).catch(() => {
-        audio.src = '';
-        audio.volume = volSlider.value / 100;
-        startPlayback();
-      });
-    } else {
-      // 古いブラウザ (Promise を返さない)
-      audio.volume = volSlider.value / 100;
-      startPlayback();
-    }
+    startPlayback();
   });
 </script>
 </body>
