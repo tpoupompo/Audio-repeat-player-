@@ -988,8 +988,7 @@
 
     audio.volume = volSlider.value / 100;
 
-    const file = files[selectedIndex];
-    npName.textContent = file.name;
+    npName.textContent = files[selectedIndex].name;
     nowPlaying.classList.add('visible');
 
     updatePlayBtn();
@@ -997,11 +996,6 @@
 
     const sd = parseInt(startDelaySec.value) || 0;
     if (sd > 0) {
-      // ユーザー操作コンテキストで play()→即pause してアクティベート確定
-      const p = audio.play();
-      if (p) p.catch(() => {});
-      audio.pause();
-      audio.currentTime = 0;
       startCooldown(sd, '開始待ち', () => { if (isPlaying) doPlay(); });
     } else {
       doPlay();
@@ -1116,20 +1110,27 @@
     if (isPlaying) { stopPlayback(); return; }
     if (selectedIndex < 0) return;
 
-    // iOS Safari 対策:
-    // ユーザー操作のコンテキストで
-    //   1. 無音ファイルを play() してオーディオを解放
-    //   2. 再生したいファイルを load() して要素をアクティベート
-    // この2ステップを同期的に行うことで、
-    // その後タイマー経由で play() しても iOS にブロックされなくなる。
-    audioSilent.play().catch(() => {});
-
+    // ファイルをセット
     if (currentBlobUrl) URL.revokeObjectURL(currentBlobUrl);
     currentBlobUrl = URL.createObjectURL(files[selectedIndex]);
     audio.src = currentBlobUrl;
-    audio.load(); // ← ユーザー操作中に load() するのが重要
+    audio.volume = volSlider.value / 100;
 
-    startPlayback();
+    // ★ iOS アンロック（ドキュメントの手法）
+    // ボタンを押した瞬間（ユーザー操作コンテキスト）で play() を呼ぶ。
+    // これでこの audio 要素が「信頼された要素」になり、
+    // 以降は setTimeout / setInterval 経由の play() もブロックされなくなる。
+    // play() が開始したら即 pause() して currentTime を 0 に戻す。
+    // スケジュール（遅延・繰り返し）は .then() の中で開始する。
+    audio.play().then(() => {
+      audio.pause();
+      audio.currentTime = 0;
+      startPlayback();
+    }).catch(e => {
+      console.log('初期再生エラー:', e);
+      audio.currentTime = 0;
+      startPlayback();
+    });
   });
 </script>
 </body>
