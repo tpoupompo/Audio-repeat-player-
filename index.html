@@ -1002,12 +1002,14 @@
     }
   }
 
-  // srcは変えずcurrentTimeを0に戻してplay()するだけ
+  // srcは変えずplay()だけ呼ぶ。
+  // HTML5仕様: ended 状態で play() を呼ぶと自動的に先頭から再生される。
+  // iOS: currentTime=0 をセットすると内部状態がリセットされ再アクティベートが
+  //      必要になる場合があるため、ここでは触らない。
   function doPlay() {
     if (!isPlaying) return;
     updateDots(currentPlay, targetPlays);
     renderFileList();
-    audio.currentTime = 0;
     audio.volume = volSlider.value / 100;
     audio.play().catch(e => {
       isPlaying = false;
