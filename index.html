@@ -751,7 +751,6 @@
   const randomPickBtn = document.getElementById('random-pick-btn');
 
   let files = [];
-  let dataURLCache = new Map();
   let currentBlobUrl = null;
   let selectedIndex = -1;
   let playingIndex = -1;
@@ -761,18 +760,6 @@
   let cooldownTimer = null;
   let isCoolingDown = false;
 
-  function fileKey(f) { return f.name + '|' + f.size; }
-
-  function cacheFile(f) {
-    const key = fileKey(f);
-    if (dataURLCache.has(key)) return Promise.resolve(dataURLCache.get(key));
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onload = e => { dataURLCache.set(key, e.target.result); resolve(e.target.result); };
-      reader.onerror = reject;
-      reader.readAsDataURL(f);
-    });
-  }
 
   // Random pick button
   randomPickBtn.addEventListener('click', () => {
@@ -845,7 +832,6 @@
     newFiles.forEach(f => {
       if (!files.find(x => x.name === f.name && x.size === f.size)) {
         files.push(f);
-        cacheFile(f); // キャッシュをバックグラウンドで作成
       }
     });
     renderFileList();
@@ -904,15 +890,16 @@
 
       fileList.appendChild(item);
 
-      // 再生時間取得（キャッシュから）
-      cacheFile(f).then(dataUrl => {
-        const tmp = new Audio();
-        tmp.src = dataUrl;
-        tmp.addEventListener('loadedmetadata', () => {
-          const span = fileList.querySelector(`.file-duration[data-idx="${i}"]`);
-          if (span) span.textContent = formatDuration(tmp.duration);
-        });
-      }).catch(() => {});
+      // 再生時間取得: 一時的なblob URLを使い、取得後すぐ解放
+      const tmpUrl = URL.createObjectURL(f);
+      const tmp = new Audio();
+      tmp.src = tmpUrl;
+      tmp.addEventListener('loadedmetadata', () => {
+        const span = fileList.querySelector(`.file-duration[data-idx="${i}"]`);
+        if (span) span.textContent = formatDuration(tmp.duration);
+        URL.revokeObjectURL(tmpUrl);
+      });
+      tmp.addEventListener('error', () => URL.revokeObjectURL(tmpUrl));
     });
   }
 
@@ -1002,14 +989,14 @@
     }
   }
 
-  // srcは変えずplay()だけ呼ぶ。
-  // HTML5仕様: ended 状態で play() を呼ぶと自動的に先頭から再生される。
-  // iOS: currentTime=0 をセットすると内部状態がリセットされ再アクティベートが
-  //      必要になる場合があるため、ここでは触らない。
+  // ended 後に play() を呼ぶだけだとiOSはファイル末尾から再生しようとして
+  // 即座に ended が再発火するため、currentTime=0 で先頭に戻してから再生する。
+  // currentTime のセットは seek 操作なのでアクティベート状態には影響しない。
   function doPlay() {
     if (!isPlaying) return;
     updateDots(currentPlay, targetPlays);
     renderFileList();
+    audio.currentTime = 0;
     audio.volume = volSlider.value / 100;
     audio.play().catch(e => {
       isPlaying = false;
