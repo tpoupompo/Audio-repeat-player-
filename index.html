@@ -279,64 +279,6 @@
   }
 
   /* Controls */
-  .now-playing {
-    display: none;
-    align-items: center;
-    gap: 10px;
-    padding: 10px 14px;
-    background: var(--accent-dim);
-    border: 1px solid rgba(245,166,35,0.25);
-    border-radius: 8px;
-    margin-top: 14px;
-  }
-
-  .now-playing.visible { display: flex; }
-
-  .np-label {
-    font-size: 10px;
-    letter-spacing: 0.15em;
-    text-transform: uppercase;
-    color: var(--accent);
-    flex-shrink: 0;
-  }
-
-  .np-name {
-    font-size: 13px;
-    color: var(--text);
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    flex: 1;
-  }
-
-  .random-pick-btn {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 8px;
-    width: calc(100% - 32px);
-    margin: 0 16px 14px;
-    height: 36px;
-    border-radius: 8px;
-    border: 1px dashed var(--border2);
-    background: transparent;
-    color: var(--muted);
-    font-family: var(--mono);
-    font-size: 12px;
-    letter-spacing: 0.08em;
-    cursor: pointer;
-    transition: all 0.2s;
-  }
-
-  .random-pick-btn:hover:not(:disabled) {
-    border-color: var(--accent);
-    color: var(--accent);
-    background: var(--accent-dim2);
-  }
-
-  .random-pick-btn:disabled { opacity: 0.3; cursor: not-allowed; }
-  .random-pick-btn svg { width: 13px; height: 13px; flex-shrink: 0; }
-
   .controls {
     padding: 20px;
     display: flex;
@@ -622,13 +564,9 @@
         <strong>クリックまたはドラッグ</strong><br>して音声ファイルを追加
       </div>
       <div class="drop-types">MP3 · WAV · OGG · M4A · FLAC · AAC</div>
-      <input type="file" id="file-input" accept=".mp3,.wav,.ogg,.m4a,.aac,.flac,.mp4,.opus,audio/mpeg,audio/wav,audio/ogg,audio/mp4,audio/x-m4a,audio/aac,audio/flac,audio/opus" multiple>
+      <input type="file" id="file-input" accept="audio/*" multiple>
     </div>
     <div class="file-list" id="file-list"></div>
-    <button class="random-pick-btn" id="random-pick-btn" disabled>
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="16 3 21 3 21 8"/><line x1="4" y1="20" x2="21" y2="3"/><polyline points="21 16 21 21 16 21"/><line x1="15" y1="15" x2="21" y2="21"/></svg>
-      ランダム選択
-    </button>
   </div>
 
   <!-- Controls -->
@@ -644,26 +582,6 @@
           <button class="count-btn" id="inc-btn">＋</button>
         </div>
         <span style="font-size: 13px; color: var(--muted);">回再生</span>
-      </div>
-
-      <div class="control-row">
-        <span class="control-label">クールタイム</span>
-        <div class="count-input-wrap">
-          <button class="count-btn" id="cool-dec-btn">−</button>
-          <input type="number" id="cooldown-sec" min="0" max="300" value="10" style="width:64px;height:36px;background:var(--bg);border:none;border-left:1px solid var(--border2);border-right:1px solid var(--border2);color:var(--text);font-family:var(--mono);font-size:15px;text-align:center;outline:none;">
-          <button class="count-btn" id="cool-inc-btn">＋</button>
-        </div>
-        <span style="font-size: 13px; color: var(--muted);">秒</span>
-      </div>
-
-      <div class="control-row">
-        <span class="control-label">開始待ち</span>
-        <div class="count-input-wrap">
-          <button class="count-btn" id="start-dec-btn">−</button>
-          <input type="number" id="start-delay-sec" min="0" max="300" value="2" style="width:64px;height:36px;background:var(--bg);border:none;border-left:1px solid var(--border2);border-right:1px solid var(--border2);color:var(--text);font-family:var(--mono);font-size:15px;text-align:center;outline:none;">
-          <button class="count-btn" id="start-inc-btn">＋</button>
-        </div>
-        <span style="font-size: 13px; color: var(--muted);">秒（初回のみ）</span>
       </div>
 
       <div class="control-row">
@@ -700,31 +618,13 @@
         <div class="progress-bar-fill" id="progress-bar"></div>
       </div>
       <div class="progress-dots" id="progress-dots"></div>
-
-      <div class="now-playing" id="now-playing">
-        <span class="np-label">再生中</span>
-        <span class="np-name" id="np-name">—</span>
-      </div>
-
-      <div id="cooldown-display" style="display:none;margin-top:16px;">
-        <div style="display:flex;align-items:center;gap:12px;">
-          <span id="cooldown-label" style="font-size:11px;letter-spacing:0.15em;text-transform:uppercase;color:var(--muted);">クールタイム</span>
-          <div style="flex:1;height:3px;background:var(--surface2);border-radius:99px;overflow:hidden;">
-            <div id="cool-bar" style="height:100%;background:var(--accent);border-radius:99px;width:100%;transition:width 1s linear;"></div>
-          </div>
-          <span id="cool-timer" style="font-family:var(--display);font-size:18px;font-weight:700;color:var(--accent);min-width:32px;text-align:right;">0</span>
-          <span style="font-size:12px;color:var(--muted);">秒</span>
-        </div>
-      </div>
-
       <div class="status-msg" id="status-msg"></div>
     </div>
   </div>
 
 </div>
 
-<audio id="audio-player" playsinline webkit-playsinline></audio>
-<audio id="audio-silent" playsinline webkit-playsinline src="data:audio/wav;base64,UklGRigAAABXQVZFZm10IBIAAAABAAEARKwAAIhYAQACABAAAABkYXRhAgAAAAEA"></audio>
+<audio id="audio-player"></audio>
 
 <script>
   const dropZone = document.getElementById('drop-zone');
@@ -740,35 +640,12 @@
   const statusMsg = document.getElementById('status-msg');
   const volSlider = document.getElementById('volume');
   const volVal = document.getElementById('vol-val');
-  const cooldownSec = document.getElementById('cooldown-sec');
-  const startDelaySec = document.getElementById('start-delay-sec');
-  const cooldownDisplay = document.getElementById('cooldown-display');
-  const cooldownLabel = document.getElementById('cooldown-label');
-  const coolBar = document.getElementById('cool-bar');
-  const coolTimer = document.getElementById('cool-timer');
-  const nowPlaying = document.getElementById('now-playing');
-  const npName = document.getElementById('np-name');
-  const randomPickBtn = document.getElementById('random-pick-btn');
 
   let files = [];
-  let currentBlobUrl = null;
   let selectedIndex = -1;
-  let playingIndex = -1;
   let isPlaying = false;
   let currentPlay = 0;
   let targetPlays = 0;
-  let cooldownTimer = null;
-  let isCoolingDown = false;
-
-
-  // Random pick button
-  randomPickBtn.addEventListener('click', () => {
-    if (files.length === 0 || isPlaying) return;
-    selectedIndex = Math.floor(Math.random() * files.length);
-    renderFileList();
-    updatePlayBtn();
-    resetProgress();
-  });
 
   // Volume
   volSlider.addEventListener('input', () => {
@@ -787,24 +664,6 @@
     if (v < 999) repeatCount.value = v + 1;
   });
 
-  document.getElementById('cool-dec-btn').addEventListener('click', () => {
-    const v = parseInt(cooldownSec.value) || 0;
-    if (v > 0) cooldownSec.value = v - 1;
-  });
-  document.getElementById('cool-inc-btn').addEventListener('click', () => {
-    const v = parseInt(cooldownSec.value) || 0;
-    if (v < 300) cooldownSec.value = v + 1;
-  });
-
-  document.getElementById('start-dec-btn').addEventListener('click', () => {
-    const v = parseInt(startDelaySec.value) || 0;
-    if (v > 0) startDelaySec.value = v - 1;
-  });
-  document.getElementById('start-inc-btn').addEventListener('click', () => {
-    const v = parseInt(startDelaySec.value) || 0;
-    if (v < 300) startDelaySec.value = v + 1;
-  });
-
   // Drop zone
   dropZone.addEventListener('click', () => fileInput.click());
 
@@ -815,12 +674,10 @@
 
   dropZone.addEventListener('dragleave', () => dropZone.classList.remove('drag-over'));
 
-  const AUDIO_EXTS = /\.(mp3|wav|ogg|m4a|aac|flac|mp4|opus)$/i;
-
   dropZone.addEventListener('drop', e => {
     e.preventDefault();
     dropZone.classList.remove('drag-over');
-    addFiles([...e.dataTransfer.files].filter(f => f.type.startsWith('audio/') || AUDIO_EXTS.test(f.name)));
+    addFiles([...e.dataTransfer.files].filter(f => f.type.startsWith('audio/')));
   });
 
   fileInput.addEventListener('change', () => {
@@ -836,7 +693,6 @@
     });
     renderFileList();
     updatePlayBtn();
-    randomPickBtn.disabled = files.length === 0 || isPlaying;
   }
 
   function formatDuration(secs) {
@@ -852,9 +708,8 @@
 
     files.forEach((f, i) => {
       const item = document.createElement('div');
-      const isActive = i === selectedIndex;
-      item.className = 'file-item' + (isActive ? ' active' : '');
-      if (isPlaying && i === playingIndex) item.classList.add('playing');
+      item.className = 'file-item' + (i === selectedIndex ? ' active' : '');
+      if (isPlaying && i === selectedIndex) item.classList.add('playing');
 
       const barHeights = [8, 14, 18, 12, 10];
 
@@ -890,22 +745,20 @@
 
       fileList.appendChild(item);
 
-      // 再生時間取得: 一時的なblob URLを使い、取得後すぐ解放
-      const tmpUrl = URL.createObjectURL(f);
-      const tmp = new Audio();
-      tmp.src = tmpUrl;
+      // Load duration
+      const url = URL.createObjectURL(f);
+      const tmp = new Audio(url);
       tmp.addEventListener('loadedmetadata', () => {
         const span = fileList.querySelector(`.file-duration[data-idx="${i}"]`);
         if (span) span.textContent = formatDuration(tmp.duration);
-        URL.revokeObjectURL(tmpUrl);
+        URL.revokeObjectURL(url);
       });
-      tmp.addEventListener('error', () => URL.revokeObjectURL(tmpUrl));
     });
   }
 
   function updatePlayBtn() {
     const canPlay = selectedIndex >= 0 && !isPlaying;
-    randomPickBtn.disabled = files.length === 0 || isPlaying;
+    playBtn.disabled = !canPlay && !isPlaying;
     if (isPlaying) {
       playBtn.className = 'play-btn stop';
       playBtn.innerHTML = `
@@ -919,20 +772,18 @@
         <svg class="play-icon" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg>
         再生開始
       `;
-      playBtn.disabled = !canPlay;
+      playBtn.disabled = selectedIndex < 0;
     }
   }
 
   function resetProgress() {
     currentPlay = 0;
     targetPlays = 0;
-    playingIndex = -1;
     progressBar.style.width = '0%';
     progressDots.innerHTML = '';
     currentCountEl.textContent = '0';
     totalCountEl.textContent = '0';
     statusMsg.textContent = '';
-    nowPlaying.classList.remove('visible');
   }
 
   function buildDots(total) {
@@ -962,9 +813,9 @@
   }
 
   function startPlayback() {
+    if (selectedIndex < 0) return;
     targetPlays = parseInt(repeatCount.value) || 1;
     currentPlay = 0;
-    playingIndex = selectedIndex;
     isPlaying = true;
     statusMsg.textContent = '';
 
@@ -973,42 +824,27 @@
     currentCountEl.textContent = 0;
     progressBar.style.width = '0%';
 
-    audio.volume = volSlider.value / 100;
-
-    npName.textContent = files[selectedIndex].name;
-    nowPlaying.classList.add('visible');
-
     updatePlayBtn();
     renderFileList();
-
-    const sd = parseInt(startDelaySec.value) || 0;
-    if (sd > 0) {
-      startCooldown(sd, '開始待ち', () => { if (isPlaying) doPlay(); });
-    } else {
-      doPlay();
-    }
+    playNext();
   }
 
-  // ended 後に play() を呼ぶだけだとiOSはファイル末尾から再生しようとして
-  // 即座に ended が再発火するため、currentTime=0 で先頭に戻してから再生する。
-  // currentTime のセットは seek 操作なのでアクティベート状態には影響しない。
-  function doPlay() {
-    if (!isPlaying) return;
+  function playNext() {
+    if (currentPlay >= targetPlays || !isPlaying) {
+      finishPlayback();
+      return;
+    }
+
     updateDots(currentPlay, targetPlays);
-    renderFileList();
-    audio.currentTime = 0;
+
+    const url = URL.createObjectURL(files[selectedIndex]);
+    audio.src = url;
     audio.volume = volSlider.value / 100;
-    audio.play().catch(e => {
-      isPlaying = false;
-      clearCooldown();
-      nowPlaying.classList.remove('visible');
-      updatePlayBtn();
-      renderFileList();
-      statusMsg.textContent = '再生できませんでした: ' + e.message;
-    });
+    audio.play();
   }
 
   audio.addEventListener('ended', () => {
+    URL.revokeObjectURL(audio.src);
     currentPlay++;
     const pct = Math.round((currentPlay / targetPlays) * 100);
     progressBar.style.width = pct + '%';
@@ -1016,61 +852,15 @@
     updateDots(currentPlay, targetPlays);
 
     if (currentPlay < targetPlays && isPlaying) {
-      const cd = parseInt(cooldownSec.value) || 0;
-      if (cd > 0) {
-        startCooldown(cd, 'クールタイム', () => { if (isPlaying) doPlay(); });
-      } else {
-        doPlay(); // srcはそのまま、currentTimeだけ巻き戻して再生
-      }
+      playNext();
     } else {
       finishPlayback();
     }
   });
 
-  function startCooldown(secs, label, onDone) {
-    isCoolingDown = true;
-    let remaining = secs;
-    cooldownLabel.textContent = label;
-    cooldownDisplay.style.display = 'block';
-    coolTimer.textContent = remaining;
-    coolBar.style.transition = 'none';
-    coolBar.style.width = '100%';
-
-    setTimeout(() => {
-      coolBar.style.transition = `width ${secs}s linear`;
-      coolBar.style.width = '0%';
-    }, 50);
-
-    cooldownTimer = setInterval(() => {
-      remaining--;
-      coolTimer.textContent = remaining;
-      if (remaining <= 0) {
-        clearInterval(cooldownTimer);
-        cooldownTimer = null;
-        cooldownDisplay.style.display = 'none';
-        isCoolingDown = false;
-        onDone();
-      }
-    }, 1000);
-  }
-
-  function clearCooldown() {
-    if (cooldownTimer) {
-      clearInterval(cooldownTimer);
-      cooldownTimer = null;
-    }
-    cooldownDisplay.style.display = 'none';
-    isCoolingDown = false;
-  }
-
   function finishPlayback() {
     isPlaying = false;
-    audio.pause();
     audio.src = '';
-    if (currentBlobUrl) { URL.revokeObjectURL(currentBlobUrl); currentBlobUrl = null; }
-    clearCooldown();
-    playingIndex = -1;
-    nowPlaying.classList.remove('visible');
     updatePlayBtn();
     renderFileList();
     if (currentPlay >= targetPlays) {
@@ -1083,43 +873,16 @@
   function stopPlayback() {
     isPlaying = false;
     audio.pause();
+    URL.revokeObjectURL(audio.src);
     audio.src = '';
-    if (currentBlobUrl) { URL.revokeObjectURL(currentBlobUrl); currentBlobUrl = null; }
-    clearCooldown();
-    playingIndex = -1;
-    nowPlaying.classList.remove('visible');
     statusMsg.textContent = `${currentPlay}回で停止しました`;
     updatePlayBtn();
     renderFileList();
   }
 
-  const audioSilent = document.getElementById('audio-silent');
-
   playBtn.addEventListener('click', () => {
-    if (isPlaying) { stopPlayback(); return; }
-    if (selectedIndex < 0) return;
-
-    // ファイルをセット
-    if (currentBlobUrl) URL.revokeObjectURL(currentBlobUrl);
-    currentBlobUrl = URL.createObjectURL(files[selectedIndex]);
-    audio.src = currentBlobUrl;
-    audio.volume = volSlider.value / 100;
-
-    // ★ iOS アンロック（ドキュメントの手法）
-    // ボタンを押した瞬間（ユーザー操作コンテキスト）で play() を呼ぶ。
-    // これでこの audio 要素が「信頼された要素」になり、
-    // 以降は setTimeout / setInterval 経由の play() もブロックされなくなる。
-    // play() が開始したら即 pause() して currentTime を 0 に戻す。
-    // スケジュール（遅延・繰り返し）は .then() の中で開始する。
-    audio.play().then(() => {
-      audio.pause();
-      audio.currentTime = 0;
-      startPlayback();
-    }).catch(e => {
-      console.log('初期再生エラー:', e);
-      audio.currentTime = 0;
-      startPlayback();
-    });
+    if (isPlaying) stopPlayback();
+    else startPlayback();
   });
 </script>
 </body>
